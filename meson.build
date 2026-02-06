@@ -1,14 +1,18 @@
-project('rpicam-apps', 'c', 'cpp',
-        meson_version : '>= 0.64.0',
-        version : '1.11.1',
-        default_options : [
-            'werror=true',
-            'warning_level=3',
-            'cpp_std=c++17',
-            'c_std=c11',
-            'buildtype=release',
-        ],
-        license : 'BSD-2-Clause')
+project(
+    'rpicam-apps',
+    'c',
+    'cpp',
+    meson_version : '>= 0.64.0',
+    version : '1.11.1',
+    default_options : [
+        'werror=true',
+        'warning_level=3',
+        'cpp_std=c++17',
+        'c_std=c11',
+        'buildtype=release',
+    ],
+    license : 'BSD-2-Clause'
+)
 
 fs = import('fs')
 
