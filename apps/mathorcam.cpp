@@ -1,7 +1,4 @@
-/* SPDX-License-Identifier: BSD-2-Clause */
 /*
- * Copyright (C) 2020, Raspberry Pi (Trading) Ltd.
- *
  * mathorcam.cpp - minimal libcamera jpeg capture app.
  */
 
