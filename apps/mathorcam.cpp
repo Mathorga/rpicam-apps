@@ -46,7 +46,7 @@ static void save_metadata(StillOptions const *options, libcamera::ControlList &m
 
 // The main even loop for the application.
 
-static void event_loop(RPiCamJpegApp &app)
+static void event_loop(MathorcamApp &app)
 {
 	StillOptions const *options = app.GetOptions();
 	app.OpenCamera();
