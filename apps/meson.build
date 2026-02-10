@@ -1,12 +1,3 @@
-mathorcam = executable(
-    'mathorcam',
-    files('mathorcam.cpp'),
-    include_directories: include_directories('..'),
-    dependencies: [libcamera_dep, boost_dep],
-    link_with: rpicam_app,
-    install: true
-)
-
 rpicam_still = executable(
     'rpicam-still',
     files('rpicam_still.cpp'),
@@ -50,6 +41,15 @@ rpicam_jpeg = executable(
     dependencies: [libcamera_dep, boost_dep],
     link_with : rpicam_app,
     install : true
+)
+
+mathorcam = executable(
+    'mathorcam',
+    files('mathorcam.cpp'),
+    include_directories: include_directories('..'),
+    dependencies: [libcamera_dep, boost_dep],
+    link_with: rpicam_app,
+    install: true
 )
 
 if enable_tflite
