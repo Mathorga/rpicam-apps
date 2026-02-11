@@ -47,7 +47,11 @@ mathorcam = executable(
     'mathorcam',
     files('mathorcam.cpp'),
     include_directories: include_directories('..'),
-    dependencies: [libcamera_dep, boost_dep],
+    dependencies: [
+        libcamera_dep,
+        libgpiod_dep,
+        boost_dep
+    ],
     link_with: rpicam_app,
     install: true
 )
