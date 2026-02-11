@@ -80,12 +80,43 @@ static void event_loop(MathorcamApp& app) {
     app.StartCamera();
     auto start_time = std::chrono::high_resolution_clock::now();
 
-    // Fetch GPIO pin reference.
-    gpiod_chip *chip = gpiod_chip_open_by_name("gpiochip0"); // RPi 5 uses gpiochip4 usually, RPi 4 uses gpiochip0
-    gpiod_line *line = gpiod_chip_get_line(chip, 17); // GPIO Pin 17
+    // Open the GPIO chip.
+    struct gpiod_chip *chip = gpiod_chip_open("/dev/gpiochip0");
+    if (chip == NULL) {
+        // TODO Show the user some error.
+        return;
+    }
+
+    // Configure the line settings on pin 17.
+    unsigned int offset = 17;
+    struct gpiod_line_settings *settings = gpiod_line_settings_new();
+    gpiod_line_settings_set_direction(settings, GPIOD_LINE_DIRECTION_INPUT);
+
+    // Optional but highly recommended: If your physical button doesn't have an external 
+    // resistor, uncomment one of these to use the Pi's internal resistors so the pin doesn't float!
+    // gpiod_line_settings_set_bias(settings, GPIOD_LINE_BIAS_PULL_DOWN); // If button connects to 3.3V
+    // gpiod_line_settings_set_bias(settings, GPIOD_LINE_BIAS_PULL_UP);   // If button connects to Ground
+
+    struct gpiod_line_config *line_cfg = gpiod_line_config_new();
+    gpiod_line_config_add_line_settings(line_cfg, &offset, 1, settings);
+
+    struct gpiod_request_config *req_cfg = gpiod_request_config_new();
+    gpiod_request_config_set_consumer(req_cfg, "rpicam-button");
+
+    // Request the line.
+    struct gpiod_line_request *request = gpiod_chip_request_lines(chip, req_cfg, line_cfg);
+    if (request == NULL) {
+        // TODO Show the user some error.
+        return;
+    }
+
+    // Free the config structs (they are no longer needed after the request is made)
+    gpiod_line_settings_free(settings);
+    gpiod_line_config_free(line_cfg);
+    gpiod_request_config_free(req_cfg);
 
     for (;;) {
-		// Read RPiCamApp message.
+        // Read RPiCamApp message.
         RPiCamApp::Msg msg = app.Wait();
 
         if (msg.type == RPiCamApp::MsgType::Timeout) {
@@ -105,21 +136,23 @@ static void event_loop(MathorcamApp& app) {
         // In viewfinder mode, simply run until the timeout. When that happens, switch to
         // capture mode.
         if (app.ViewfinderStream()) {
-			// Read the current time from chrono.
-		auto now = std::chrono::high_resolution_clock::now();
+            // Read the current time from chrono.
+        auto now = std::chrono::high_resolution_clock::now();
 
             // Fetch any pressed key.
             int key = get_keypress();
+            // Read the current value of the pin
+            enum gpiod_line_value shutter_button_value = gpiod_line_request_get_value(request, offset);
 
             bool timeout_passed = options->Get().timeout && (now - start_time) > options->Get().timeout.value;
             bool key_pressed = key == 'c';
-            bool shutter_button_pressed = gpiod_line_get_value(line) == 1;
+            bool shutter_button_pressed = shutter_button_value == GPIOD_LINE_VALUE_ACTIVE;
 
             if (key != 0)
                 printf("\n%c - %d\n", key, key);
 
             if (timeout_passed || key_pressed || shutter_button_pressed) {
-				// Change mode to still picture.
+                // Change mode to still picture.
                 app.StopCamera();
                 app.Teardown();
                 app.ConfigureStill();
@@ -129,7 +162,7 @@ static void event_loop(MathorcamApp& app) {
                 app.ShowPreview(completed_request, app.ViewfinderStream());
             }
         } else if (app.StillStream()) {
-			// In still capture mode, save a jpeg and get back to viewfinder mode.
+            // In still capture mode, save a jpeg and get back to viewfinder mode.
             app.StopCamera();
             LOG(1, "Still capture image received");
 
@@ -154,14 +187,15 @@ static void event_loop(MathorcamApp& app) {
             if (!options->Get().metadata.empty())
                 save_metadata(options, payload->metadata);
 
-			// Get back to viewfinder mode.
-			app.StopCamera();
-			app.Teardown();
-			app.ConfigureViewfinder();
-			app.StartCamera();
+            // Get back to viewfinder mode.
+            app.StopCamera();
+            app.Teardown();
+            app.ConfigureViewfinder();
+            app.StartCamera();
         }
     }
 
+    gpiod_line_request_release(request);
     gpiod_chip_close(chip);
 }
 
