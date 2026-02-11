@@ -134,7 +134,19 @@ static void event_loop(MathorcamApp& app) {
             CompletedRequestPtr &payload = std::get<CompletedRequestPtr>(msg.payload);
             BufferReadSync r(&app, payload->buffers[stream]);
             const std::vector<libcamera::Span<uint8_t>> mem = r.Get();
-            jpeg_save(mem, info, payload->metadata, options->Get().output, app.CameraModel(), options);
+
+            // TODO Fetch target output file.
+            std::string output_file_path = options->Get().output;
+
+            jpeg_save(
+                mem,
+                info,
+                payload->metadata,
+                output_file_path,
+                app.CameraModel(),
+                options
+            );
+
             if (!options->Get().metadata.empty())
                 save_metadata(options, payload->metadata);
 
