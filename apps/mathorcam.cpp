@@ -77,7 +77,7 @@ static void event_loop(MathorcamApp& app) {
     app.OpenCamera();
     app.ConfigureViewfinder();
     app.StartCamera();
-    std::__1::chrono::steady_clock::time_point start_time = std::chrono::high_resolution_clock::now();
+    auto start_time = std::chrono::high_resolution_clock::now();
 
     // Fetch GPIO pin reference.
     // gpiod_chip *chip = gpiod_chip_open_by_name("gpiochip0"); // RPi 5 uses gpiochip4 usually, RPi 4 uses gpiochip0
@@ -105,7 +105,7 @@ static void event_loop(MathorcamApp& app) {
         // capture mode.
         if (app.ViewfinderStream()) {
 			// Read the current time from chrono.
-            std::__1::chrono::steady_clock::time_point now = std::chrono::high_resolution_clock::now();
+		auto now = std::chrono::high_resolution_clock::now();
 
             // Fetch any pressed key.
             int key = kbhit();
@@ -113,6 +113,8 @@ static void event_loop(MathorcamApp& app) {
             bool timeout_passed = options->Get().timeout && (now - start_time) > options->Get().timeout.value;
             bool shutter_button_pressed = false;//gpiod_line_get_value(line) == 1;
             bool key_pressed = key == 'c';
+
+            printf("\n%c - %d\n", key, key);
 
             if (timeout_passed || key_pressed || shutter_button_pressed) {
 				// Change mode to still picture.
@@ -158,7 +160,7 @@ static void event_loop(MathorcamApp& app) {
         }
     }
 
-    gpiod_chip_close(chip);
+    //gpiod_chip_close(chip);
 }
 
 int main(int argc, char *argv[]) {
