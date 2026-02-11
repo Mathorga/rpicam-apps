@@ -189,7 +189,7 @@ int main(int argc, char *argv[]) {
         }
     } catch (std::exception const &e) {
         LOG_ERROR("ERROR: *** " << e.what() << " ***");
-        restore_keyboard();
+        restore_keyboard(orig_termios);
         return -1;
     }
     restore_keyboard(orig_termios);
