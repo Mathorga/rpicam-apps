@@ -193,6 +193,9 @@ static void event_loop(MathorcamApp& app) {
             app.ConfigureViewfinder();
             app.StartCamera();
         }
+
+        // Wait for a while to let the processors breathe.
+        std::this_thread::sleep_for(std::chrono::milliseconds(10));
     }
 
     gpiod_line_request_release(request);
