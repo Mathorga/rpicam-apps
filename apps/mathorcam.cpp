@@ -3,6 +3,10 @@
  */
 
 #include <chrono>
+#include <termios.h>
+#include <unistd.h>
+#include <fcntl.h>
+// #include <gpiod.h>
 
 #include "core/rpicam_app.hpp"
 #include "core/still_options.hpp"
@@ -38,13 +42,46 @@ static void save_metadata(StillOptions const *options, libcamera::ControlList &m
     write_metadata(buf, options->Get().metadata_format, metadata, true);
 }
 
+int kbhit() {
+    struct termios oldt, newt;
+    int ch;
+    int oldf;
+
+    // Get current terminal settings
+    tcgetattr(STDIN_FILENO, &oldt);
+    newt = oldt;
+    
+    // Disable canonical mode (don't wait for Enter) and echo
+    newt.c_lflag &= ~(ICANON | ECHO);
+    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    
+    // Set standard input to non-blocking
+    oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
+    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+
+    ch = getchar();
+
+    // Restore original terminal settings
+    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
+    fcntl(STDIN_FILENO, F_SETFL, oldf);
+
+    if(ch != EOF) {
+        return ch; // Return the key that was pressed
+    }
+    return 0; // Return 0 if no key was pressed
+}
+
 // The main loop for the application.
 static void event_loop(MathorcamApp& app) {
     StillOptions const *options = app.GetOptions();
     app.OpenCamera();
     app.ConfigureViewfinder();
     app.StartCamera();
-    auto start_time = std::chrono::high_resolution_clock::now();
+    std::__1::chrono::steady_clock::time_point start_time = std::chrono::high_resolution_clock::now();
+
+    // Fetch GPIO pin reference.
+    // gpiod_chip *chip = gpiod_chip_open_by_name("gpiochip0"); // RPi 5 uses gpiochip4 usually, RPi 4 uses gpiochip0
+    // gpiod_line *line = gpiod_chip_get_line(chip, 17); // GPIO Pin 17
 
     for (;;) {
 		// Read RPiCamApp message.
@@ -58,9 +95,10 @@ static void event_loop(MathorcamApp& app) {
         }
 
         if (msg.type == RPiCamApp::MsgType::Quit)
-            return;
+            break;
 
         else if (msg.type != RPiCamApp::MsgType::RequestComplete)
+            // This is critical since GPIO chip is not closed.
             throw std::runtime_error("unrecognised message!");
 
         // In viewfinder mode, simply run until the timeout. When that happens, switch to
@@ -69,7 +107,14 @@ static void event_loop(MathorcamApp& app) {
 			// Read the current time from chrono.
             std::__1::chrono::steady_clock::time_point now = std::chrono::high_resolution_clock::now();
 
-            if (options->Get().timeout && (now - start_time) > options->Get().timeout.value) {
+            // Fetch any pressed key.
+            int key = kbhit();
+
+            bool timeout_passed = options->Get().timeout && (now - start_time) > options->Get().timeout.value;
+            bool shutter_button_pressed = false;//gpiod_line_get_value(line) == 1;
+            bool key_pressed = key == 'c';
+
+            if (timeout_passed || key_pressed || shutter_button_pressed) {
 				// Change mode to still picture.
                 app.StopCamera();
                 app.Teardown();
@@ -100,6 +145,8 @@ static void event_loop(MathorcamApp& app) {
 			app.StartCamera();
         }
     }
+
+    gpiod_chip_close(chip);
 }
 
 int main(int argc, char *argv[]) {
