@@ -42,33 +42,34 @@ static void save_metadata(StillOptions const *options, libcamera::ControlList &m
     write_metadata(buf, options->Get().metadata_format, metadata, true);
 }
 
-int kbhit() {
-    struct termios oldt, newt;
-    int ch;
-    int oldf;
-
-    // Get current terminal settings
-    tcgetattr(STDIN_FILENO, &oldt);
-    newt = oldt;
+// Call this ONCE before your loop
+void setup_keyboard(struct termios orig_termios) {
+    tcgetattr(STDIN_FILENO, &orig_termios);
+    struct termios raw = orig_termios;
     
-    // Disable canonical mode (don't wait for Enter) and echo
-    newt.c_lflag &= ~(ICANON | ECHO);
-    tcsetattr(STDIN_FILENO, TCSANOW, &newt);
+    // Disable canonical mode (waiting for Enter) and echoing (printing the key)
+    raw.c_lflag &= ~(ICANON | ECHO); 
     
-    // Set standard input to non-blocking
-    oldf = fcntl(STDIN_FILENO, F_GETFL, 0);
-    fcntl(STDIN_FILENO, F_SETFL, oldf | O_NONBLOCK);
+    // Set read() to be completely non-blocking
+    raw.c_cc[VMIN] = 0;  // Minimum characters to wait for
+    raw.c_cc[VTIME] = 0; // Timeout in deciseconds
+    
+    tcsetattr(STDIN_FILENO, TCSANOW, &raw);
+}
 
-    ch = getchar();
+// Call this ONCE after your loop finishes
+void restore_keyboard(struct termios orig_termios) {
+    tcsetattr(STDIN_FILENO, TCSANOW, &orig_termios);
+}
 
-    // Restore original terminal settings
-    tcsetattr(STDIN_FILENO, TCSANOW, &oldt);
-    fcntl(STDIN_FILENO, F_SETFL, oldf);
-
-    if(ch != EOF) {
-        return ch; // Return the key that was pressed
+// The new, much simpler kbhit
+int get_keypress() {
+    char ch = 0;
+    // read() will instantly return 0 if no key is pressed, or 1 if a key is pressed
+    if (read(STDIN_FILENO, &ch, 1) > 0) {
+        return ch;
     }
-    return 0; // Return 0 if no key was pressed
+    return 0;
 }
 
 // The main loop for the application.
@@ -108,7 +109,7 @@ static void event_loop(MathorcamApp& app) {
 		auto now = std::chrono::high_resolution_clock::now();
 
             // Fetch any pressed key.
-            int key = kbhit();
+            int key = get_keypress();
 
             bool timeout_passed = options->Get().timeout && (now - start_time) > options->Get().timeout.value;
             bool shutter_button_pressed = false;//gpiod_line_get_value(line) == 1;
@@ -164,6 +165,10 @@ static void event_loop(MathorcamApp& app) {
 }
 
 int main(int argc, char *argv[]) {
+    // Store the original terminal settings so we can restore them later
+    struct termios orig_termios;
+    setup_keyboard(orig_termios);
+
     try {
         MathorcamApp app;
         StillOptions *options = app.GetOptions();
@@ -183,7 +188,9 @@ int main(int argc, char *argv[]) {
         }
     } catch (std::exception const &e) {
         LOG_ERROR("ERROR: *** " << e.what() << " ***");
+        restore_keyboard();
         return -1;
     }
+    restore_keyboard(orig_termios);
     return 0;
 }
