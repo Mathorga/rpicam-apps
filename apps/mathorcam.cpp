@@ -112,10 +112,11 @@ static void event_loop(MathorcamApp& app) {
             int key = get_keypress();
 
             bool timeout_passed = options->Get().timeout && (now - start_time) > options->Get().timeout.value;
-            bool shutter_button_pressed = false;//gpiod_line_get_value(line) == 1;
             bool key_pressed = key == 'c';
+            bool shutter_button_pressed = false;//gpiod_line_get_value(line) == 1;
 
-            printf("\n%c - %d\n", key, key);
+            if (key != 0)
+                printf("\n%c - %d\n", key, key);
 
             if (timeout_passed || key_pressed || shutter_button_pressed) {
 				// Change mode to still picture.
