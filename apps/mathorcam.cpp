@@ -6,7 +6,7 @@
 #include <termios.h>
 #include <unistd.h>
 #include <fcntl.h>
-// #include <gpiod.h>
+#include <gpiod.h>
 
 #include "core/rpicam_app.hpp"
 #include "core/still_options.hpp"
@@ -81,8 +81,8 @@ static void event_loop(MathorcamApp& app) {
     auto start_time = std::chrono::high_resolution_clock::now();
 
     // Fetch GPIO pin reference.
-    // gpiod_chip *chip = gpiod_chip_open_by_name("gpiochip0"); // RPi 5 uses gpiochip4 usually, RPi 4 uses gpiochip0
-    // gpiod_line *line = gpiod_chip_get_line(chip, 17); // GPIO Pin 17
+    gpiod_chip *chip = gpiod_chip_open_by_name("gpiochip0"); // RPi 5 uses gpiochip4 usually, RPi 4 uses gpiochip0
+    gpiod_line *line = gpiod_chip_get_line(chip, 17); // GPIO Pin 17
 
     for (;;) {
 		// Read RPiCamApp message.
@@ -113,7 +113,7 @@ static void event_loop(MathorcamApp& app) {
 
             bool timeout_passed = options->Get().timeout && (now - start_time) > options->Get().timeout.value;
             bool key_pressed = key == 'c';
-            bool shutter_button_pressed = false;//gpiod_line_get_value(line) == 1;
+            bool shutter_button_pressed = gpiod_line_get_value(line) == 1;
 
             if (key != 0)
                 printf("\n%c - %d\n", key, key);
@@ -162,7 +162,7 @@ static void event_loop(MathorcamApp& app) {
         }
     }
 
-    //gpiod_chip_close(chip);
+    gpiod_chip_close(chip);
 }
 
 int main(int argc, char *argv[]) {
